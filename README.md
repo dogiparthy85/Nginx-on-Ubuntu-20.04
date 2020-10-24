@@ -134,4 +134,155 @@ If you are only making configuration changes, Nginx can often reload without dro
 </li></ul></code></pre>
 
 
+By default, Nginx is configured to start automatically when the server boots. If this is not what you want, you can disable this behavior by typing:
 
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo systemctl disable nginx
+</li></ul></code></pre>
+
+To re-enable the service to start up at boot, you can type:
+
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo systemctl enable nginx
+</li></ul></code></pre>
+
+You have now learned basic management commands and should be ready to configure the site to host more than one domain.
+
+<h2 id="step-5-–-setting-up-server-blocks-recommended">Step 5 – Setting Up Server Blocks (Recommended)</h2>
+
+When using the Nginx web server, server blocks (similar to virtual hosts in Apache) can be used to encapsulate configuration details and host more than one domain from a single server. We will set up a domain called your_domain, but you should replace this with your own domain name.  
+
+Nginx on Ubuntu 20.04 has one server block enabled by default that is configured to serve documents out of a directory at /var/www/html. While this works well for a single site, it can become unwieldy if you are hosting multiple sites. Instead of modifying /var/www/html, let’s create a directory structure within /var/www for our your_domain site, leaving /var/www/html in place as the default directory to be served if a client request doesn’t match any other sites.
+
+Create the directory for your_domain as follows, using the -p flag to create any necessary parent directories:
+
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo mkdir -p /var/www/<span class="highlight">your_domain</span>/html
+</li></ul></code></pre>
+
+Next, assign ownership of the directory with the $USER environment variable:
+
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo chown -R $USER:$USER /var/www/<span class="highlight">your_domain</span>/html
+</li></ul></code></pre>
+
+The permissions of your web roots should be correct if you haven’t modified your umask value, which sets default file permissions. To ensure that your permissions are correct and allow the owner to read, write, and execute the files while granting only read and execute permissions to groups and others, you can input the following command:
+
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo chmod -R 755 /var/www/<span class="highlight">your_domain</span>
+</li></ul></code></pre>
+
+Next, create a sample index.html page using nano or your favorite editor:
+
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo nano /var/www/<span class="highlight">your_domain</span>/html/index.html
+</li></ul></code></pre>
+
+Inside, add the following sample HTML:
+<div class="code-label " title="/var/www/your_domain/html/index.html">/var/www/your_domain/html/index.html</div>
+<div class="code-toolbar"><pre class="code-pre  language-html"><code class="code-highlight  language-html"><span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>html</span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>head</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>title</span><span class="token punctuation">&gt;</span></span>Welcome to <span class="highlight">your_domain</span>!<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>title</span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>head</span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>body</span><span class="token punctuation">&gt;</span></span>
+        <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;</span>h1</span><span class="token punctuation">&gt;</span></span>Success!  The <span class="highlight">your_domain</span> server block is working!<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>h1</span><span class="token punctuation">&gt;</span></span>
+    <span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>body</span><span class="token punctuation">&gt;</span></span>
+<span class="token tag"><span class="token tag"><span class="token punctuation">&lt;/</span>html</span><span class="token punctuation">&gt;</span></span></code></pre><div class="toolbar"><div class="toolbar-item"><button>Copy</button></div></div></div>
+
+Save and close the file by typing CTRL and X then Y and ENTER when you are finished.
+
+In order for Nginx to serve this content, it’s necessary to create a server block with the correct directives. Instead of modifying the default configuration file directly, let’s make a new one at /etc/nginx/sites-available/your_domain:
+
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo nano /etc/nginx/sites-available/<span class="highlight">your_domain</span>
+</li></ul></code></pre>
+
+Paste in the following configuration block, which is similar to the default, but updated for our new directory and domain name:
+
+<div class="code-label " title="/etc/nginx/sites-available/your_domain">/etc/nginx/sites-available/your_domain</div>
+
+<pre class="code-pre  language-html"><code class="code-highlight  language-html">server {
+        listen 80;
+        listen [::]:80;
+
+        root /var/www/<span class="highlight">your_domain</span>/html;
+        index index.html index.htm index.nginx-debian.html;
+
+        server_name <span class="highlight">your_domain</span> www.<span class="highlight">your_domain</span>;
+
+        location / {
+                try_files $uri $uri/ =404;
+        }
+}</code></pre>
+
+Notice that we’ve updated the root configuration to our new directory, and the server_name to our domain name.
+
+Next, let’s enable the file by creating a link from it to the sites-enabled directory, which Nginx reads from during startup:
+
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo ln -s /etc/nginx/sites-available/<span class="highlight">your_domain</span> /etc/nginx/sites-enabled/
+</li></ul></code></pre>
+
+Two server blocks are now enabled and configured to respond to requests based on their listen and server_name directives (you can read more about how Nginx processes these directives here):
+
+your_domain: Will respond to requests for your_domain and www.your_domain.
+default: Will respond to any requests on port 80 that do not match the other two blocks.
+To avoid a possible hash bucket memory problem that can arise from adding additional server names, it is necessary to adjust a single value in the /etc/nginx/nginx.conf file. Open the file:
+
+<li class="line" data-prefix="$">sudo nano /etc/nginx/nginx.conf
+</li>
+
+Find the server_names_hash_bucket_size directive and remove the # symbol to uncomment the line. If you are using nano, you can quickly search for words in the file by pressing CTRL and w.
+
+<p>Find the <code>server_names_hash_bucket_size</code> directive and remove the <code>#</code> symbol to uncomment the line. If you are using nano, you can quickly search for words in the file by pressing <code>CTRL</code> and <code>w</code>.</p>
+
+  <div class="code-label " title="/etc/nginx/nginx.conf">/etc/nginx/nginx.conf</div>
+  <pre class="code-pre "><code>...
+http {
+    ...
+    server_names_hash_bucket_size 64;
+    ...
+}
+...
+</code></pre>
+
+Save and close the file when you are finished.
+
+Next, test to make sure that there are no syntax errors in any of your Nginx files:
+
+<li class="line" data-prefix="$">sudo nginx -t
+</li>
+
+If there aren’t any problems, restart Nginx to enable your changes:
+
+<p>If there aren’t any problems, restart Nginx to enable your changes:</p>
+
+<pre class="code-pre command prefixed"><code><ul class="prefixed"><li class="line" data-prefix="$">sudo systemctl restart nginx
+</li></ul></code></pre>
+
+Nginx should now be serving your domain name. You can test this by navigating to http://your_domain, where you should see something like this:
+
+<img src="https://github.com/dogiparthy85/Nginx-on-Ubuntu-20.04/blob/main/first_block%5B1%5D.png" alt="Nginx first server block">
+
+<h2 id="step-6-–-getting-familiar-with-important-nginx-files-and-directories">Step 6 – Getting Familiar with Important Nginx Files and Directories</h2>
+
+Now that you know how to manage the Nginx service itself, you should take a few minutes to familiarize yourself with a few important directories and files.
+
+<h3 id="content">Content</h3>
+
+<li><code>/var/www/html</code>: The actual web content, which by default only consists of the default Nginx page you saw earlier, is served out of the <code>/var/www/html</code> directory. This can be changed by altering Nginx configuration files.</li>
+
+<h3 id="server-configuration">Server Configuration</h3>
+
+<ul>
+<li><code>/etc/nginx</code>: The Nginx configuration directory. All of the Nginx configuration files reside here.</li>
+<li><code>/etc/nginx/nginx.conf</code>: The main Nginx configuration file. This can be modified to make changes to the Nginx global configuration.</li>
+<li><code>/etc/nginx/sites-available/</code>: The directory where per-site server blocks can be stored. Nginx will not use the configuration files found in this directory unless they are linked to the <code>sites-enabled</code> directory. Typically, all server block configuration is done in this directory, and then enabled by linking to the other directory.</li>
+<li><code>/etc/nginx/sites-enabled/</code>: The directory where enabled per-site server blocks are stored.  Typically, these are created by linking to configuration files found in the <code>sites-available</code> directory.</li>
+<li><code>/etc/nginx/snippets</code>: This directory contains configuration fragments that can be included elsewhere in the Nginx configuration. Potentially repeatable configuration segments are good candidates for refactoring into snippets.</li>
+</ul>
+
+<h3 id="server-logs">Server Logs</h3>
+
+<ul>
+<li><code>/var/log/nginx/access.log</code>: Every request to your web server is recorded in this log file unless Nginx is configured to do otherwise.</li>
+<li><code>/var/log/nginx/error.log</code>: Any Nginx errors will be recorded in this log.</li>
+</ul>
+
+<h2 id="conclusion">Conclusion</h2>
+
+Now that you have your web server installed, you have many options for the type of content to serve and the technologies you want to use to create a richer experience.
+
+If you’d like to build out a more complete application stack, check out the article How To Install Linux, Nginx, MySQL, PHP (LEMP stack) on Ubuntu 20.04.
